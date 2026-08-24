@@ -451,6 +451,7 @@
             <button data-range="365">1Y</button>
             <button data-range="0" class="active">All</button>
           </div>
+          <div class="range-toggle" id="year-toggle"></div>
           <div class="zoom-controls" id="zoom-controls">
             <button id="zoom-in" title="Zoom in (scroll up)">+</button>
             <button id="zoom-out" title="Zoom out (scroll down)">−</button>
@@ -484,7 +485,7 @@ const COMPONENT_META = [
   { key: 'vol_adj_momentum', name: 'Vol-adj momentum', weight: 20 },
 ];
 
-// Mirrors ZONES in btc_risk_score.py — base $10/week
+// Mirrors ZONES in eth_risk_score.py — base $10/week
 const ZONES = [
   { upper: 0.10, zone: 'Extreme Buy',        mult: 3.0,  size: 30, action: 'Max accumulate',           color: '#16a34a', mood: 'Thriving',  eyes: 'happy',   mouth: 'grin',      particle: 'sparkle', anim: 'anim-extreme_buy' },
   { upper: 0.20, zone: 'Strong Buy',         mult: 1.5,  size: 15, action: 'Accumulate',                color: '#22c55e', mood: 'Excited',   eyes: 'happy',   mouth: 'smile',     particle: 'sparkle', anim: 'anim-strong_buy' },
@@ -621,12 +622,12 @@ async function init() {
     data = await res.json();
   } catch (e) {
     document.getElementById('status-msg').textContent =
-      'Could not load data/btc_risk_history.json — run btc_risk_score.py to generate it.';
+      'Could not load data/eth_risk_history.json — run eth_risk_score.py to generate it.';
     return;
   }
 
   if (!data || !data.length) {
-    document.getElementById('status-msg').textContent = 'No data yet — run btc_risk_score.py first.';
+    document.getElementById('status-msg').textContent = 'No data yet — run eth_risk_score.py first.';
     return;
   }
 
@@ -710,17 +711,27 @@ async function init() {
     },
   };
 
-  function sliceData(days) {
-    if (!days) return data;
-    return data.slice(-days);
+  function sliceData(range) {
+    if (!range || range === '0') return data;
+    if (typeof range === 'string' && range.startsWith('y')) {
+      const year = range.slice(1);
+      return data.filter(r => r.date.startsWith(year));
+    }
+    return data.slice(-Number(range));
+  }
+
+  function populateYearButtons() {
+    const years = [...new Set(data.map(r => r.date.slice(0, 4)))].sort((a, b) => b - a);
+    const container = document.getElementById('year-toggle');
+    container.innerHTML = years.map(y => `<button data-range="y${y}">${y}</button>`).join('');
   }
 
   function pointColors(rows) {
     return rows.map(r => scoreColor(r.composite_score));
   }
 
-  function renderCharts(days) {
-    const rows = sliceData(days);
+  function renderCharts(range) {
+    const rows = sliceData(range);
 
     // Category scales in chartjs-plugin-zoom can't pan past the real data
     // range no matter what `limits` says, so we pad with blank slots on
@@ -852,14 +863,26 @@ async function init() {
     });
   }
 
-  renderCharts(0);
+  populateYearButtons();
+  renderCharts('0');
+
+  function selectRange(range) {
+    document.querySelectorAll('#range-toggle button, #year-toggle button').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`[data-range="${range}"]`);
+    if (btn) btn.classList.add('active');
+    renderCharts(range);
+  }
 
   document.getElementById('range-toggle').addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
-    document.querySelectorAll('#range-toggle button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderCharts(Number(btn.dataset.range));
+    selectRange(btn.dataset.range);
+  });
+
+  document.getElementById('year-toggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    selectRange(btn.dataset.range);
   });
 
   // Zoom controls
