@@ -25,8 +25,3 @@ jobs:
           git add data/eth_risk_history.json data/eth_prices_raw.json
           git diff --cached --quiet || git commit -m "Daily ETH risk score update"
           git push
-      - name: Send Telegram alert
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python eth_risk_alert.py
